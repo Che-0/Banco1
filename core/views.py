@@ -1,0 +1,20 @@
+from django.shortcuts import render
+
+# Create your views here.
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from clientes.models import Cliente
+from accounts.models import User
+from notificaciones.models import Notificacion
+
+@login_required
+def dashboard(request):
+    context = {
+        'total_clientes': Cliente.objects.count(),
+        'total_usuarios': User.objects.count(),
+        'clientes_recientes': Cliente.objects.order_by('-fecha_registro')[:5],
+        'notificaciones_recientes': Notificacion.objects.filter(
+            destinatario=request.user
+        ).order_by('-fecha_creacion')[:5],
+    }
+    return render(request, 'core/dashboard.html', context)
