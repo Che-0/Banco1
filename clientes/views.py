@@ -8,10 +8,14 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
-from .models import Cliente, CuentaBancaria
-from .forms import ClienteForm, CuentaBancariaForm
+from .models import Cliente, CuentaBancaria, Transferencia
+from .forms import ClienteForm, TransferenciaForm
 from accounts.models import User
 from notificaciones.models import Notificacion
+
+
+from decimal import Decimal
+from django.db import transaction
 
 def es_admin_o_empleado(user):
     return user.is_authenticated and (user.es_admin or user.es_empleado or user.is_superuser)
@@ -43,6 +47,7 @@ from django.db import models
 
 # ========== Crear cliente ==========
 @login_required
+@login_required
 @user_passes_test(es_admin_o_empleado)
 def crear_cliente(request):
     if request.method == 'POST':
@@ -50,24 +55,47 @@ def crear_cliente(request):
         if form.is_valid():
             cliente = form.save(commit=False)
             cliente.creado_por = request.user
+
+            # Crear usuario si se solicitó
+            if form.cleaned_data.get('crear_usuario'):
+                user = User.objects.create_user(
+                    username=form.cleaned_data['username'],
+                    password=form.cleaned_data['password1'],
+                    first_name=form.cleaned_data['nombres'],
+                    last_name=form.cleaned_data['apellidos'],
+                    email=form.cleaned_data.get('email', ''),
+                    telefono=form.cleaned_data.get('telefono', ''),
+                    rol=User.Rol.CLIENTE
+                )
+                cliente.usuario = user
+
             cliente.save()
 
-            # Crear notificación automática
+            # Crear cuenta bancaria automáticamente
+            CuentaBancaria.objects.create(
+                cliente=cliente,
+                numero_cuenta=form.generar_numero_cuenta(),
+                tipo_cuenta=form.cleaned_data['tipo_cuenta'],
+                saldo=form.cleaned_data['saldo_inicial'],
+                estado=CuentaBancaria.Estado.ACTIVA
+            )
+
+            # Notificación
             Notificacion.objects.create(
                 destinatario=request.user,
                 titulo="Cliente registrado",
-                mensaje=f"Se registró correctamente al cliente {cliente.nombre_completo}.",
+                mensaje=f"Se registró al cliente {cliente.nombre_completo} con su cuenta bancaria.",
                 tipo=Notificacion.Tipo.EXITO
             )
 
-            messages.success(request, f"Cliente {cliente.nombre_completo} registrado correctamente.")
+            messages.success(request, f"Cliente {cliente.nombre_completo} y su cuenta fueron creados correctamente.")
             return redirect('clientes:lista_clientes')
     else:
         form = ClienteForm()
-    
+
     return render(request, 'clientes/form_cliente.html', {
-    'form': form,
-    'titulo': 'Registrar Cliente'
+        'form': form,
+        'titulo': 'Registrar Cliente + Cuenta'
     })
 
 # ========== Detalle de cliente ==========
@@ -111,3 +139,101 @@ class EliminarClienteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, "Cliente eliminado correctamente.")
         return super().delete(request, *args, **kwargs)
+    
+    
+@login_required
+def portal_cliente(request):
+    # Solo los clientes pueden entrar aquí
+    if not hasattr(request.user, 'rol') or request.user.rol != 'CLIENTE':
+        messages.warning(request, "Esta sección es solo para clientes.")
+        return redirect('core:dashboard')
+
+    try:
+        cliente = request.user.cliente
+        cuenta = cliente.cuentas.filter(estado='ACTIVA').first()
+    except Exception:
+        messages.error(request, "No tienes un perfil de cliente asociado.")
+        return redirect('core:dashboard')   # Mejor que cerrar sesión
+
+    transferencias = []
+    if cuenta:
+        transferencias = Transferencia.objects.filter(
+            models.Q(cuenta_origen=cuenta) | models.Q(cuenta_destino=cuenta)
+        ).order_by('-fecha')[:10]
+
+    context = {
+        'cliente': cliente,
+        'cuenta': cuenta,
+        'transferencias': transferencias,
+    }
+    return render(request, 'clientes/portal_cliente.html', context)
+
+@login_required
+def realizar_transferencia(request):
+    if not request.user.es_cliente:
+        return redirect('core:dashboard')
+
+    cliente = request.user.cliente
+    cuenta_origen = cliente.cuentas.filter(estado='ACTIVA').first()
+
+    if not cuenta_origen:
+        messages.error(request, "No tienes una cuenta activa.")
+        return redirect('clientes:portal')
+
+    if request.method == 'POST':
+        form = TransferenciaForm(request.POST)
+        if form.is_valid():
+            numero_destino = form.cleaned_data['numero_cuenta_destino']
+            monto = form.cleaned_data['monto']
+            descripcion = form.cleaned_data['descripcion']
+
+            cuenta_destino = CuentaBancaria.objects.get(numero_cuenta=numero_destino)
+
+            if cuenta_destino == cuenta_origen:
+                messages.error(request, "No puedes transferir a tu misma cuenta.")
+                return redirect('clientes:transferencia')
+
+            if cuenta_origen.saldo < monto:
+                messages.error(request, "Saldo insuficiente.")
+                return redirect('clientes:transferencia')
+
+            # Realizar la transferencia de forma segura
+            with transaction.atomic():
+                cuenta_origen.saldo -= monto
+                cuenta_origen.save()
+
+                cuenta_destino.saldo += monto
+                cuenta_destino.save()
+
+                Transferencia.objects.create(
+                    cuenta_origen=cuenta_origen,
+                    cuenta_destino=cuenta_destino,
+                    monto=monto,
+                    descripcion=descripcion,
+                    realizado_por=request.user
+                )
+
+                # Notificaciones
+                Notificacion.objects.create(
+                    destinatario=request.user,
+                    titulo="Transferencia realizada",
+                    mensaje=f"Enviaste ${monto} a la cuenta {numero_destino}.",
+                    tipo=Notificacion.Tipo.EXITO
+                )
+                if cuenta_destino.cliente.usuario:
+                    Notificacion.objects.create(
+                        destinatario=cuenta_destino.cliente.usuario,
+                        titulo="Transferencia recibida",
+                        mensaje=f"Recibiste ${monto} de la cuenta {cuenta_origen.numero_cuenta}.",
+                        tipo=Notificacion.Tipo.INFO
+                    )
+
+            messages.success(request, f"Transferencia de ${monto} realizada con éxito.")
+            return redirect('clientes:portal')
+    else:
+        form = TransferenciaForm()
+
+    return render(request, 'clientes/realizar_transferencia.html', {
+        'form': form,
+        'cuenta': cuenta_origen
+    })

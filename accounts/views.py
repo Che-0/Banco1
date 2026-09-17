@@ -19,6 +19,8 @@ def es_admin(user):
 # ========== Login / Logout ==========
 def login_view(request):
     if request.user.is_authenticated:
+        if request.user.es_cliente:
+            return redirect('clientes:portal')
         return redirect('core:dashboard')
 
     form = LoginForm(request, data=request.POST or None)
@@ -26,6 +28,9 @@ def login_view(request):
         user = form.get_user()
         login(request, user)
         messages.success(request, f"Bienvenido, {user.get_full_name() or user.username}")
+
+        if user.es_cliente:
+            return redirect('clientes:portal')
         return redirect('core:dashboard')
     
     return render(request, 'accounts/login.html', {'form': form})

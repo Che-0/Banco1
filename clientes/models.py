@@ -107,3 +107,46 @@ class CuentaBancaria(models.Model):
 
     def __str__(self):
         return f"{self.numero_cuenta} - {self.cliente.nombre_completo}"
+    
+    
+class Transferencia(models.Model):
+    class Tipo(models.TextChoices):
+        ENVIADA = 'ENVIADA', 'Enviada'
+        RECIBIDA = 'RECIBIDA', 'Recibida'
+
+    class Estado(models.TextChoices):
+        COMPLETADA = 'COMPLETADA', 'Completada'
+        PENDIENTE = 'PENDIENTE', 'Pendiente'
+        RECHAZADA = 'RECHAZADA', 'Rechazada'
+
+    cuenta_origen = models.ForeignKey(
+        CuentaBancaria,
+        on_delete=models.CASCADE,
+        related_name='transferencias_enviadas'
+    )
+    cuenta_destino = models.ForeignKey(
+        CuentaBancaria,
+        on_delete=models.CASCADE,
+        related_name='transferencias_recibidas'
+    )
+    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    descripcion = models.CharField(max_length=255, blank=True)
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.COMPLETADA
+    )
+    fecha = models.DateTimeField(auto_now_add=True)
+    realizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
+    class Meta:
+        ordering = ['-fecha']
+        verbose_name = 'Transferencia'
+        verbose_name_plural = 'Transferencias'
+
+    def __str__(self):
+        return f"{self.cuenta_origen.numero_cuenta} → {self.cuenta_destino.numero_cuenta} | ${self.monto}"
