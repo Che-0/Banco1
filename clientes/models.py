@@ -3,7 +3,7 @@ from django.db import models
 # Create your models here.
 from django.db import models
 from django.conf import settings
-from django.core.validators import RegexValidator
+from django.core.validators import FileExtensionValidator, RegexValidator
 
 class Cliente(models.Model):
     class TipoDocumento(models.TextChoices):
@@ -58,6 +58,16 @@ class Cliente(models.Model):
     )
     fecha_registro = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
+    
+    
+    foto = models.ImageField(
+        upload_to='clientes/fotos/',
+        null=True,
+        blank=True,
+        default='clientes/fotos/default.png',  # imagen por defecto
+        validators=[FileExtensionValidator(['jpg', 'jpeg', 'png', 'webp'])],
+        help_text="Foto de perfil del cliente"
+    )
 
     class Meta:
         ordering = ['-fecha_registro']

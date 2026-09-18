@@ -65,6 +65,14 @@ class ClienteForm(forms.ModelForm):
             'estado': forms.Select(attrs={'class': 'form-select'}),
         }
 
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.fields['fecha_nacimiento'].input_formats = ['%Y-%m-%d']
+            self.fields['fecha_nacimiento'].widget.attrs.update({
+                'type': 'date',
+                'class': 'form-control'
+        })
+
     def clean(self):
         cleaned_data = super().clean()
         crear_usuario = cleaned_data.get('crear_usuario')
@@ -89,6 +97,8 @@ class ClienteForm(forms.ModelForm):
             numero = ''.join(random.choices(string.digits, k=10))
             if not CuentaBancaria.objects.filter(numero_cuenta=numero).exists():
                 return numero
+            
+
             
 class TransferenciaForm(forms.Form):
     numero_cuenta_destino = forms.CharField(
@@ -125,3 +135,21 @@ class TransferenciaForm(forms.Form):
         if not CuentaBancaria.objects.filter(numero_cuenta=numero, estado='ACTIVA').exists():
             raise forms.ValidationError("La cuenta destino no existe o no está activa.")
         return numero
+    
+class CambiarFotoForm(forms.ModelForm):
+    class Meta:
+        model = Cliente
+        fields = ['foto']
+        widgets = {
+            'foto': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'foto': 'Nueva foto de perfil',
+        }
+    
+    
+def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    
+    # Para que el calendario funcione bien al editar
+    self.fields['fecha_nacimiento'].input_formats = ['%Y-%m-%d']

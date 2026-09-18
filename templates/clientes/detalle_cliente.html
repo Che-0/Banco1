@@ -15,47 +15,52 @@
 
 <div class="row g-4">
     <!-- Datos personales -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Datos Personales</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-borderless mb-0">
-                    <tr>
-                        <th width="40%">Nombre completo:</th>
-                        <td>{{ cliente.nombre_completo }}</td>
-                    </tr>
-                    <tr>
-                        <th>Documento:</th>
-                        <td>{{ cliente.get_tipo_documento_display }} - {{ cliente.numero_documento }}</td>
-                    </tr>
-                    <tr>
-                        <th>Fecha de nacimiento:</th>
-                        <td>{{ cliente.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</td>
-                    </tr>
-                    <tr>
-                        <th>Teléfono:</th>
-                        <td>{{ cliente.telefono|default:"—" }}</td>
-                    </tr>
-                    <tr>
-                        <th>Email:</th>
-                        <td>{{ cliente.email|default:"—" }}</td>
-                    </tr>
-                    <tr>
-                        <th>Estado:</th>
-                        <td>
-                            {% if cliente.estado == 'ACTIVO' %}
-                                <span class="badge bg-success">Activo</span>
-                            {% elif cliente.estado == 'INACTIVO' %}
-                                <span class="badge bg-secondary">Inactivo</span>
-                            {% else %}
-                                <span class="badge bg-danger">Bloqueado</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                </table>
-            </div>
+<!-- Datos personales -->
+<div class="col-md-6">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex align-items-center gap-3">
+            {% if cliente.foto %}
+                <img src="{{ cliente.foto.url }}" alt="Foto" class="rounded-circle" width="55" height="55" style="object-fit: cover;">
+            {% else %}
+                <img src="/media/clientes/fotos/default.png" alt="Foto" class="rounded-circle" width="55" height="55" style="object-fit: cover;">
+            {% endif %}
+            <h5 class="mb-0">Datos Personales</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-borderless mb-0">
+                <tr>
+                    <th width="40%">Nombre completo:</th>
+                    <td>{{ cliente.nombre_completo }}</td>
+                </tr>
+                <tr>
+                    <th>Documento:</th>
+                    <td>{{ cliente.get_tipo_documento_display }} - {{ cliente.numero_documento }}</td>
+                </tr>
+                <tr>
+                    <th>Fecha de nacimiento:</th>
+                    <td>{{ cliente.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Teléfono:</th>
+                    <td>{{ cliente.telefono|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Email:</th>
+                    <td>{{ cliente.email|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Estado:</th>
+                    <td>
+                        {% if cliente.estado == 'ACTIVO' %}
+                            <span class="badge bg-success">Activo</span>
+                        {% elif cliente.estado == 'INACTIVO' %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Bloqueado</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
         </div>
     </div>
 

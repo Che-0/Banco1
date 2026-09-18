@@ -13,4 +13,5 @@ urlpatterns = [
     # Portal del Cliente
     path('portal/', views.portal_cliente, name='portal'),
     path('transferencia/', views.realizar_transferencia, name='transferencia'),
+    path('cambiar-foto/', views.cambiar_foto, name='cambiar_foto'),
 ]

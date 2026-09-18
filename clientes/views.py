@@ -12,6 +12,7 @@ from .models import Cliente, CuentaBancaria, Transferencia
 from .forms import ClienteForm, TransferenciaForm
 from accounts.models import User
 from notificaciones.models import Notificacion
+from .forms import ClienteForm, TransferenciaForm, CambiarFotoForm
 
 
 from decimal import Decimal
@@ -236,4 +237,25 @@ def realizar_transferencia(request):
     return render(request, 'clientes/realizar_transferencia.html', {
         'form': form,
         'cuenta': cuenta_origen
+    })
+    
+@login_required
+def cambiar_foto(request):
+    if not request.user.es_cliente:
+        return redirect('core:dashboard')
+
+    cliente = request.user.cliente
+
+    if request.method == 'POST':
+        form = CambiarFotoForm(request.POST, request.FILES, instance=cliente)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Foto actualizada correctamente.")
+            return redirect('clientes:portal')
+    else:
+        form = CambiarFotoForm(instance=cliente)
+
+    return render(request, 'clientes/cambiar_foto.html', {
+        'form': form,
+        'cliente': cliente
     })
